@@ -1,5 +1,5 @@
-import { DatabaseSync } from "node:sqlite";
 import { randomUUID } from "node:crypto";
+import { createRequire } from "node:module";
 import type {
   DatabaseConfig,
   DigestEvent,
@@ -13,6 +13,9 @@ import type {
   SummaryPersistenceOptions,
   TaskSeed
 } from "./types";
+
+const require = createRequire(import.meta.url);
+const { DatabaseSync } = require("node:sqlite");
 
 export class IngestorDatabase {
   private db: DatabaseSync;

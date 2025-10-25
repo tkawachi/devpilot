@@ -9,6 +9,7 @@ const VK_LOG_PATTERNS: RegExp[] = [
 const TASK_TOKEN = /(TASK|ISSUE|BUG)[-#]?(?<id>\d{2,6})/i;
 
 export interface ParsedVKEvent {
+  id?: string;
   message: string;
   createdAt: string;
   author?: string;
@@ -23,7 +24,7 @@ export function parseVKLog(log: VKLogIngest): ParsedVKEvent[] {
     .filter(Boolean);
 
   const events: ParsedVKEvent[] = [];
-  for (const line of lines) {
+  lines.forEach((line, index) => {
     let match: RegExpExecArray | null = null;
     for (const pattern of VK_LOG_PATTERNS) {
       const candidate = pattern.exec(line);
@@ -33,14 +34,17 @@ export function parseVKLog(log: VKLogIngest): ParsedVKEvent[] {
       }
     }
 
+    const entryId = log.id ? `${log.id}:${index}` : undefined;
+
     if (!match || !match.groups) {
       const fallbackTask = line.match(TASK_TOKEN)?.groups?.id;
       events.push({
+        id: entryId,
         message: line,
         createdAt: log.receivedAt ?? new Date().toISOString(),
         taskId: fallbackTask ? `TASK-${fallbackTask}` : undefined
       });
-      continue;
+      return;
     }
 
     const timestamp = match.groups["timestamp"];
@@ -51,13 +55,14 @@ export function parseVKLog(log: VKLogIngest): ParsedVKEvent[] {
     const discoveredTask = taskId ?? line.match(TASK_TOKEN)?.groups?.id;
 
     events.push({
+      id: entryId,
       message,
       createdAt: normalizeTimestamp(timestamp, log.receivedAt),
       severity,
       author,
       taskId: discoveredTask ? `TASK-${discoveredTask}` : undefined
     });
-  }
+  });
 
   return events;
 }
@@ -112,7 +117,7 @@ export function toDigestEventsFromVK(
   source: string
 ): DigestEvent[] {
   return parsed.map((entry) => ({
-    id: randomUUID(),
+    id: entry.id ?? randomUUID(),
     type: entry.severity?.toLowerCase() === "error" ? "incident" : "vk_log",
     source,
     message: entry.message,
