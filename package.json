@@ -6,9 +6,21 @@
     "packages/*"
   ],
   "scripts": {
-    "ci:echo": "echo CI skeleton ok"
+    "ci:echo": "echo CI skeleton ok",
+    "lint": "pnpm exec eslint \"{apps,packages}/**/*.ts\" --max-warnings=0",
+    "typecheck": "pnpm exec tsc -b tsconfig.packages.json --pretty false",
+    "test": "pnpm exec vitest run"
   },
   "dependencies": {
     "commander": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.9",
+    "@typescript-eslint/eslint-plugin": "^7.14.1",
+    "@typescript-eslint/parser": "^7.14.1",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
   }
 }

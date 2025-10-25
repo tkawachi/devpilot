@@ -1,0 +1,10 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/core/tsconfig.json" },
+    { "path": "packages/ingestor/tsconfig.json" },
+    { "path": "packages/notifier/tsconfig.json" },
+    { "path": "packages/repo-provider/tsconfig.json" },
+    { "path": "packages/summarizer/tsconfig.json" }
+  ]
+}

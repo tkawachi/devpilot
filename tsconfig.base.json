@@ -12,7 +12,9 @@
     "declaration": true,
     "sourceMap": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "types": ["node"],
+    "typeRoots": ["./types", "./node_modules/@types"]
   },
   "include": ["src"],
   "exclude": ["dist", "node_modules"]
