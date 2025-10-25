@@ -303,21 +303,30 @@ function buildAppleScript(input: {
   subtitle?: string;
   sound?: string;
 }): string {
-  let script = `display notification "${escapeAppleScriptString(input.message)}" with title "${escapeAppleScriptString(input.title)}"`;
+  let script = `display notification ${serializeAppleScriptString(input.message)} with title ${serializeAppleScriptString(input.title)}`;
 
   if (input.subtitle) {
-    script += ` subtitle "${escapeAppleScriptString(input.subtitle)}"`;
+    script += ` subtitle ${serializeAppleScriptString(input.subtitle)}`;
   }
 
   if (input.sound) {
-    script += ` sound name "${escapeAppleScriptString(input.sound)}"`;
+    script += ` sound name ${serializeAppleScriptString(input.sound)}`;
   }
 
   return script;
 }
 
-function escapeAppleScriptString(value: string): string {
-  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+function serializeAppleScriptString(value: string): string {
+  const literalFor = (segment: string): string =>
+    `"${segment.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+
+  const parts = value.split(/\r\n|\n|\r/);
+
+  if (parts.length === 1) {
+    return literalFor(parts[0]);
+  }
+
+  return parts.map(literalFor).join(" & linefeed & ");
 }
 
 function execFileAsync(file: string, args: string[]): Promise<void> {
