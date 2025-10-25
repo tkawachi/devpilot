@@ -11,7 +11,6 @@ import type {
   StoredTaskRecord,
   SummaryInput,
   SummaryPersistenceOptions,
-  SummaryRecord,
   TaskSeed
 } from "./types";
 
