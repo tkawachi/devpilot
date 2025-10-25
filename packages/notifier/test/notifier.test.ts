@@ -11,6 +11,7 @@ import { emitDigest, type Notification } from "../src/index";
 import type { SummaryEnvelope, SummaryItem } from "../../summarizer/src/index";
 import type { DigestEvent } from "../../ingestor/src/index";
 import { execFile } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 
 const execFileMock = execFile as unknown as Mock;
 
@@ -43,7 +44,7 @@ const baseEvent: DigestEvent = {
 beforeEach(() => {
   execFileMock.mockImplementation((_, __, callback?: (error: NodeJS.ErrnoException | null) => void) => {
     callback?.(null);
-    return {} as any;
+    return {} as ChildProcess;
   });
 });
 
@@ -124,11 +125,11 @@ describe("SlackDigestNotifier transports", () => {
     const platformSpy = vi.spyOn(process, "platform", "get").mockReturnValue("darwin");
     execFileMock.mockImplementationOnce((_, __, callback?: (error: NodeJS.ErrnoException | null) => void) => {
       callback?.(new Error("osascript failure"));
-      return {} as any;
+      return {} as ChildProcess;
     });
     execFileMock.mockImplementationOnce((_, __, callback?: (error: NodeJS.ErrnoException | null) => void) => {
       callback?.(new Error("osascript failure"));
-      return {} as any;
+      return {} as ChildProcess;
     });
 
     try {
