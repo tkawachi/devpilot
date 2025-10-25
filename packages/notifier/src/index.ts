@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import type { SummaryEnvelope, SummaryItem } from "../../summarizer/src/index";
 import type { DigestEvent, RiskLevel } from "../../ingestor/src/index";
@@ -12,6 +13,7 @@ export interface Notification {
 }
 
 export interface NotifierOptions {
+  mode?: "slack" | "macos";
   slackToken?: string;
   channel?: string;
   batchIntervalMs?: number;
@@ -19,6 +21,9 @@ export interface NotifierOptions {
   autoStart?: boolean;
   fetchImpl?: typeof fetch;
   timezone?: string;
+  macTitle?: string;
+  macSubtitle?: string;
+  macSound?: string;
 }
 
 interface PendingSummary {
@@ -30,10 +35,16 @@ const DEFAULT_BATCH_INTERVAL = 10 * 60 * 1000;
 const DEFAULT_IMMEDIATE_RISK: RiskLevel[] = ["high"];
 
 export class SlackDigestNotifier {
-  private readonly options: Required<Omit<NotifierOptions, "slackToken" | "channel" | "fetchImpl">> & {
+  private readonly options: Required<
+    Pick<NotifierOptions, "batchIntervalMs" | "immediateRiskLevels" | "autoStart" | "timezone">
+  > & {
     slackToken?: string;
     channel?: string;
     fetchImpl: typeof fetch;
+    mode: NotifierOptions["mode"];
+    macTitle?: string;
+    macSubtitle?: string;
+    macSound?: string;
   };
 
   private pending: PendingSummary[] = [];
@@ -48,7 +59,11 @@ export class SlackDigestNotifier {
       timezone: options.timezone ?? "UTC",
       slackToken: options.slackToken,
       channel: options.channel,
-      fetchImpl: options.fetchImpl ?? fetch
+      fetchImpl: options.fetchImpl ?? fetch,
+      mode: options.mode ?? "slack",
+      macTitle: options.macTitle,
+      macSubtitle: options.macSubtitle,
+      macSound: options.macSound
     };
 
     if (this.options.autoStart) {
@@ -104,7 +119,7 @@ export class SlackDigestNotifier {
     const summaryIds = aggregatedItems.map((item) => item.id);
     const text = formatDigest(aggregatedItems, this.options.timezone, aggregatedEvents);
 
-    const notification = await this.postToSlack({
+    const notification = await this.dispatchNotification({
       type: "batch",
       text,
       summaryIds
@@ -126,11 +141,28 @@ export class SlackDigestNotifier {
 
   private async sendImmediateAlert(item: SummaryItem, envelope: SummaryEnvelope): Promise<Notification> {
     const text = buildImmediateAlert(item, envelope, this.options.timezone);
-    return this.postToSlack({
+    return this.dispatchNotification({
       type: "immediate",
       text,
       summaryIds: [item.id]
     });
+  }
+
+  private dispatchNotification(payload: {
+    type: "batch" | "immediate";
+    text: string;
+    summaryIds: string[];
+  }): Promise<Notification> {
+    if (this.options.mode === "macos") {
+      return postToMacOs({
+        ...payload,
+        title: this.options.macTitle,
+        subtitle: this.options.macSubtitle,
+        sound: this.options.macSound
+      });
+    }
+
+    return this.postToSlack(payload);
   }
 
   private async postToSlack(payload: {
@@ -191,6 +223,113 @@ export class SlackDigestNotifier {
       };
     }
   }
+}
+
+const DEFAULT_MACOS_TITLE = "DevPilot Digest";
+
+async function postToMacOs(payload: {
+  type: "batch" | "immediate";
+  text: string;
+  summaryIds: string[];
+  title?: string;
+  subtitle?: string;
+  sound?: string;
+}): Promise<Notification> {
+  const resolvedTitle = payload.title ?? DEFAULT_MACOS_TITLE;
+  const basePayload: Record<string, unknown> = {
+    summaryIds: payload.summaryIds,
+    text: payload.text,
+    title: resolvedTitle
+  };
+
+  if (payload.subtitle) {
+    basePayload.subtitle = payload.subtitle;
+  }
+
+  if (payload.sound) {
+    basePayload.sound = payload.sound;
+  }
+
+  const baseNotification: Notification = {
+    id: randomUUID(),
+    channel: "macos",
+    type: payload.type,
+    status: "skipped",
+    payload: basePayload
+  };
+
+  if (process.platform !== "darwin") {
+    return {
+      ...baseNotification,
+      payload: {
+        ...basePayload,
+        reason: "unsupported_platform",
+        platform: process.platform
+      }
+    };
+  }
+
+  const script = buildAppleScript({
+    message: payload.text,
+    title: resolvedTitle,
+    subtitle: payload.subtitle,
+    sound: payload.sound
+  });
+
+  try {
+    await execFileAsync("osascript", ["-e", script]);
+    return {
+      ...baseNotification,
+      status: "sent",
+      sentAt: new Date().toISOString()
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return {
+      ...baseNotification,
+      status: "failed",
+      sentAt: new Date().toISOString(),
+      payload: {
+        ...basePayload,
+        error: errorMessage
+      }
+    };
+  }
+}
+
+function buildAppleScript(input: {
+  message: string;
+  title: string;
+  subtitle?: string;
+  sound?: string;
+}): string {
+  let script = `display notification "${escapeAppleScriptString(input.message)}" with title "${escapeAppleScriptString(input.title)}"`;
+
+  if (input.subtitle) {
+    script += ` subtitle "${escapeAppleScriptString(input.subtitle)}"`;
+  }
+
+  if (input.sound) {
+    script += ` sound name "${escapeAppleScriptString(input.sound)}"`;
+  }
+
+  return script;
+}
+
+function escapeAppleScriptString(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
+function execFileAsync(file: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, (error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
 }
 
 export async function emitDigest(
