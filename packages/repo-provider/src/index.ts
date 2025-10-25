@@ -86,6 +86,14 @@ export async function prepareRepository(
       logger: options.logger,
       env: options.env
     });
+    if (requireProbeSuccess && !cloneProbe.ok) {
+      const reason = cloneProbe.reason
+        ? `: ${cloneProbe.reason}`
+        : "";
+      throw new Error(
+        `[repo-provider] clone probe failed for ${clonePath}${reason}`
+      );
+    }
   }
   await touch(clonePath);
   log.info(`[repo-provider] using clone at ${clonePath}`);
