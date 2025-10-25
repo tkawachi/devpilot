@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { handleDigest } from "./commands/digest";
+import { handleCollect } from "./commands/collect";
 import { handlePrDraft } from "./commands/prDraft";
 
 const program = new Command();
@@ -48,6 +49,14 @@ program
   .option("--max-lines <count>", "Limit diff lines", (value) => Number.parseInt(value, 10))
   .action((options) => {
     handlePrDraft({ maxLines: options.maxLines });
+  });
+
+program
+  .command("collect")
+  .description("Start the workspace event collector")
+  .option("--interval <ms>", "Polling interval in milliseconds", (value) => Number.parseInt(value, 10))
+  .action(async (options) => {
+    await handleCollect({ interval: options.interval });
   });
 
 program.parseAsync(process.argv);

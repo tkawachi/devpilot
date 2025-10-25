@@ -11,6 +11,7 @@ export interface DigestEvent {
 }
 
 export interface VKLogIngest {
+  id?: string;
   content: string;
   source?: string;
   receivedAt?: string;
