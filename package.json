@@ -1,0 +1,11 @@
+{
+  "name": "devpilot",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "ci:echo": "echo CI skeleton ok"
+  }
+}
