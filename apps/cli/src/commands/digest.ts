@@ -5,13 +5,20 @@ export interface CliDigestOptions {
   limit?: number;
   format?: string;
   includeRawEvents?: boolean;
+  notify?: "slack" | "macos";
+  slackToken?: string;
+  slackChannel?: string;
+  macTitle?: string;
+  macSubtitle?: string;
+  macSound?: string;
 }
 
 export async function handleDigest(options: CliDigestOptions): Promise<void> {
   const result = await runDigestPipeline({
     since: options.since,
     limit: options.limit,
-    includeRawEvents: options.includeRawEvents
+    includeRawEvents: options.includeRawEvents,
+    notifier: buildNotifierOptions(options)
   });
 
   const format = normalizeFormat(options.format);
@@ -20,6 +27,33 @@ export async function handleDigest(options: CliDigestOptions): Promise<void> {
   } else {
     console.log(JSON.stringify(result, null, 2));
   }
+}
+
+function buildNotifierOptions(
+  options: CliDigestOptions
+): Parameters<typeof runDigestPipeline>[0]["notifier"] {
+  const hasSlackConfig = Boolean(options.slackToken || options.slackChannel);
+  const hasMacConfig = Boolean(options.macTitle || options.macSubtitle || options.macSound);
+  const resolvedMode = options.notify ?? (hasMacConfig ? "macos" : hasSlackConfig ? "slack" : undefined);
+
+  if (!resolvedMode) {
+    return undefined;
+  }
+
+  if (resolvedMode === "macos") {
+    return {
+      mode: resolvedMode,
+      macTitle: options.macTitle,
+      macSubtitle: options.macSubtitle,
+      macSound: options.macSound
+    };
+  }
+
+  return {
+    mode: resolvedMode,
+    slackToken: options.slackToken,
+    channel: options.slackChannel
+  };
 }
 
 function normalizeFormat(format?: string): "json" | "text" {

@@ -15,12 +15,30 @@ program
   .option("--limit <count>", "Maximum number of events", (value) => Number.parseInt(value, 10))
   .option("--format <format>", "Output format (json|text)", "json")
   .option("--no-include-raw-events", "Exclude raw event list from output")
+  .option("--notify <mode>", "Notifier to use (slack|macos)", (value) => {
+    const normalized = value.toLowerCase();
+    if (normalized !== "slack" && normalized !== "macos") {
+      throw new Error(`Invalid notifier mode: ${value}`);
+    }
+    return normalized;
+  })
+  .option("--slack-token <token>", "Slack bot token for notifications")
+  .option("--slack-channel <channel>", "Slack channel to post digest notifications")
+  .option("--mac-title <title>", "Title for macOS notification center alerts")
+  .option("--mac-subtitle <subtitle>", "Subtitle for macOS notifications")
+  .option("--mac-sound <sound>", "macOS notification sound name")
   .action(async (options) => {
     await handleDigest({
       since: options.since,
       limit: options.limit,
       format: options.format,
-      includeRawEvents: options.includeRawEvents
+      includeRawEvents: options.includeRawEvents,
+      notify: options.notify,
+      slackToken: options.slackToken,
+      slackChannel: options.slackChannel,
+      macTitle: options.macTitle,
+      macSubtitle: options.macSubtitle,
+      macSound: options.macSound
     });
   });
 
