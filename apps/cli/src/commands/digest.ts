@@ -31,18 +31,39 @@ function normalizeFormat(format?: string): "json" | "text" {
 }
 
 function renderTextDigest(result: Awaited<ReturnType<typeof runDigestPipeline>>): void {
+  const summary = result.summary;
   console.log(`# Digest since ${result.since}`);
-  console.log(result.summary.headline);
-  if (result.summary.highlights.length) {
-    console.log("\nHighlights:");
-    for (const highlight of result.summary.highlights) {
-      console.log(`- ${highlight}`);
+  console.log(`Generated ${summary.generatedAt} (${summary.timezone}) using ${summary.model}`);
+
+  if (summary.items.length) {
+    console.log("\nSummary items:");
+    for (const item of summary.items) {
+      const riskLabel = item.risk ? ` [${item.risk}]` : "";
+      console.log(`- ${item.summary}${riskLabel}`);
+      if (item.next_steps.length) {
+        for (const step of item.next_steps) {
+          console.log(`    • ${step}`);
+        }
+      }
     }
+  } else {
+    console.log("\nNo summary items generated.");
   }
+
   if (result.events.length) {
     console.log("\nEvents:");
     for (const event of result.events) {
       console.log(`- [${event.type}] ${event.message}`);
+    }
+  }
+
+  if (result.notifications.length) {
+    console.log("\nNotifications:");
+    for (const notification of result.notifications) {
+      const details = typeof notification.payload?.text === "string"
+        ? notification.payload.text
+        : JSON.stringify(notification.payload);
+      console.log(`- [${notification.channel}] ${details}`);
     }
   }
 }
